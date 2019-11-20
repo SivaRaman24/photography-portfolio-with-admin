@@ -8,7 +8,7 @@ const EventEmitter = require('events');
 const galleryRoutes = require('./api/routes/gallery');
 
 const DB_NAME = 'photography-portfolio';
-const CONNECTION_URI = 'mongodb://127.0.0.1:27017/' + dbName;
+const CONNECTION_URI = 'mongodb://127.0.0.1:27017/' + DB_NAME;
 
 mongoose
     .connect(CONNECTION_URI, { useNewUrlParser: true })
@@ -22,6 +22,7 @@ mongoDbEmitter.on('connected', (event) => {
 });
 
 app.use(morgan('dev'));
+app.use('/assets', express.static('assets'));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
@@ -42,16 +43,13 @@ app.use(bodyParser.json());
 app.use('/galleries', galleryRoutes);
 
 app.use((req, res, next) => {
-    const error = new Error('Not Found');
+    const error = new Error('Page Not Found');
     error.status = 404;
-    console.log('not found');
     next(error);
 });
 
 app.use((error, req, res, next) => {
-    res.status(error.status || 500);
-    console.log("next working");
-    res.json({
+    res.status(error.status || 500).json({
         error: {
             message: error.message
         }

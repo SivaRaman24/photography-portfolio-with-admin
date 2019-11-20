@@ -4,25 +4,66 @@ const gallerySchema = mongoose.Schema({
     _id: mongoose.Schema.Types.ObjectId,
     name: {
         type: String,
-        required: true
+        // required: true
     },
     description: String,
     keywords: [String],
-    featureImageUrl: String,
-    bannerImageUrl: String,
-    customeUrl: String,
-    visibility: String,
-    password: String,
-    passwordHint: String,
-    enableDownloadOption: Boolean,
-    enableShoppingButton: Boolean,
-    enableSharingOption: Boolean,
-    enableCommentSection: Boolean,
-    enableSlideShow: Boolean,
-    styleType: String,
-    enableCameraInfo: Boolean,
+    featureImageName: String,
+    bannerImageName: {
+        type: String,
+        default: ''
+    },
+    customUrl: {
+        type: String,
+        default: ''
+    },
+    visibility: {
+        type: String,
+        enum: ['PUBLIC', 'PRIVATE', 'UNLISTED'],
+        default: 'PUBLIC'
+    },
+    password: {
+        type: String,
+        default: ''
+    },
+    passwordHint: {
+        type: String,
+        default: ''
+    },
+    enableDownloadOption: {
+        type: Boolean,
+        default: false
+    },
+    enableShoppingButton: {
+        type: Boolean,
+        default: false
+    },
+    enableSharingOption: {
+        type: Boolean,
+        default: false
+    },
+    enableCommentSection: {
+        type: Boolean,
+        default: false
+    },
+    enableSlideShow: {
+        type: Boolean,
+        default: false
+    },
+    styleType: { 
+        type: String,
+        enum: ['THUMBNAILS', 'COLLAGE LANDSCAPE', 'COLLAGE PORTRAIT', 'JOURNAL', 'SLIDESHOW'],
+        default: 'THUMBNAILS' //As of now we are going to support only THUMBNAILS style alone.
+    },
+    enableCameraInfo: {
+        type: Boolean,
+        default: false
+    },
     ancestors: [String],
-    parent: String,
+    parent: {
+        type: String,
+        default: null
+    },
     created: {
         type: Date,
         default: Date.now
@@ -32,7 +73,5 @@ const gallerySchema = mongoose.Schema({
         default: Date.now
     },
 });
-
-
 
 module.exports = mongoose.model('Gallery', gallerySchema);
