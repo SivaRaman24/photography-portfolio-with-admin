@@ -2,35 +2,19 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require("mongoose");
 const multer = require('multer');
+const shell = require('shelljs');
 
 //Models
 const Gallery = require('../models/gallery');
+const GalleryImage = require('../models/galleryImage');
 
 //Constant variables
 //TODO: Needs to move this variables to environment variables
 const API_URL = 'http://127.0.0.1:3000/';
+const GALLERY_IMAGE_BASE_FOLDER = './assets/gallery/';
 const FEATURE_IMAGE_BASE_FOLDER = './assets/gallery/featureImages/';
+const GALLERY_IMAGE_BASE_URL = API_URL + 'assets/gallery/';
 const FEATURE_IMAGE_BASE_URL = API_URL + 'assets/gallery/featureImages/';
-
-const fileStorage = multer.diskStorage({
-    destination: (req, file, callback) => {
-        callback(null /** error */, FEATURE_IMAGE_BASE_FOLDER /** destination */);
-    },
-    filename: (req, file, callback) => {
-        // console.log(file);
-        callback(null /** error */, Date.now() + '_' + file.originalname  /** filename */);
-    }
-});
-
-const fileFilter = (req, file, callback) => {
-    if(file.mimetype == 'image/jpeg' || file.mimetype == 'image/png') {
-        //Accepting a file
-        callback(null /** error */, true);
-    } else {
-        //Rejecting a file
-        callback(null /** error */, false);
-    }
-}
 
 const getGalleryObjFromReq = (req) => {
     const galleryObj = {
@@ -62,22 +46,43 @@ const getGalleryObjFromReq = (req) => {
     return new Gallery(galleryObj);
 };
 
-const handleFileUpload = multer({
-    storage: fileStorage,
-    fileFilter: fileFilter
-}).single('featureImage' /** fieldName */);
+const fileFilter = (req, file, callback) => {
+    if(file.mimetype == 'image/jpeg' || file.mimetype == 'image/png') {
+        //Accepting a file
+        callback(null /** error */, true);
+    } else {
+        //Rejecting a file
+        callback(null /** error */, false);
+    }
+}
 
-router.post('/', handleFileUpload, (req, res, next) => {
+const handleFileUpload = (destination) => {
+    return multer({
+        storage: multer.diskStorage({
+            destination: (req, file, callback) => {
+                const galleryId = req.params.galleryId;
+                shell.mkdir('-p', destination + galleryId);
+                callback(null /** error */, destination + galleryId /** destination */);
+            },
+            filename: (req, file, callback) => {
+                callback(null /** error */, Date.now() + '_' + file.originalname  /** filename */);
+            }
+        }),
+        fileFilter: fileFilter
+    });
+}
+
+router.post('/', handleFileUpload(FEATURE_IMAGE_BASE_FOLDER).single('featureImage' /** fieldName */), (req, res, next) => {
     const gallery = getGalleryObjFromReq(req);
     gallery
         .save()
         .then(result => {
-            console.log(result);
             res.status(201).json({
                 message: "Create new gallery API",
                 createdGallery: gallery,
                 requestBody: req.body,
-                featureImage: req.file
+                featureImageFile: req.file, //For Reference
+                featureImageUrl: FEATURE_IMAGE_BASE_URL + req.file.filename
             });
         })
         .catch(error => {
@@ -85,6 +90,47 @@ router.post('/', handleFileUpload, (req, res, next) => {
                 message: error.message
             });
         })
+});
+
+const deleteUploadedImages = (fileNamesToDelete) => {
+    shell.rm(fileNamesToDelete);
+}
+
+router.post('/:galleryId/upload/', 
+    handleFileUpload(GALLERY_IMAGE_BASE_FOLDER).array('galleryImage' /** fieldName */), 
+    (req, res, next) => {
+        const galleryId = req.params.galleryId;
+        const images = req.files;
+        let galleryImages = [];
+        let fileNames = [];
+        images.forEach((image, index) => {
+            galleryImage = {
+                _id: new mongoose.Types.ObjectId(),
+                name: image.filename,
+                galleryId: galleryId
+            };
+            galleryImages.push(galleryImage);
+            fileNames.push(image.path);
+        });
+
+        GalleryImage.create(galleryImages).then(result => {
+            res.status(200).json({
+                galleryImages: result.map((currentValue) => {
+                    return {
+                        _id: currentValue.id,
+                        name: currentValue.name,
+                        galleryId: currentValue.galleryId,
+                        imageUrl: GALLERY_IMAGE_BASE_URL + currentValue.galleryId + '/' + currentValue.name
+                    }
+                }),
+            });
+        }).catch(error => {
+            //Will delete uploaded files incase of any error
+            deleteUploadedImages(fileNames);
+            res.status(500).json({
+                message: error.message
+            });
+        });
 });
 
 router.get('/', (req, res, next) => {
@@ -153,7 +199,6 @@ router.patch('/:galleryId', (req, res, next) => {
     const id = req.params.galleryId;
     let updateOps = {};
     for(const ops of req.body) {
-        console.log("test", ops);
         updateOps[ops.propertyName] = ops.value;
     }
 
